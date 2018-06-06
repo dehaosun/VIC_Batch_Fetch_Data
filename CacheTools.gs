@@ -1,4 +1,12 @@
 
+function removeConfigKeyValuesFromCache(){
+ var tag = '_Config_Key_Value';
+ var cache = CacheService.getDocumentCache();
+ cache.remove(tag);
+}
+
+
+
 function getConfigKeyValues(){
   var tag = '_Config_Key_Value';
   var keyValues =  getKeyValuesToFromCache(tag);
@@ -21,7 +29,7 @@ var tag = '_Node_Key_Value';
 }
 
 function createNodeKeyValues(){
-  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Src');
+  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Node');
   if(sh ===  null) return;  
   var rng = sh.getRange('F1:G20');
   var keyValues = getKeyValuesFromRange(rng); 

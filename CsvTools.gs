@@ -36,7 +36,7 @@ function urlFetchWihtoutError(url) {
     catch (error) {
       nbErr = nbErr + 1;
       Utilities.sleep(nbSecPause * 1000)
-      nbSecPause += 0.5;
+      //nbSecPause += 0.5;
     }
   }
 }

@@ -48,19 +48,9 @@ function testDataFetch(){
 }
 
 
-function createSpreadsheetChangeTrigger() {
-    var ss = SpreadsheetApp.getActive();
-    ScriptApp.newTrigger('onChange')
-      .forSpreadsheet(ss)
-      .onChange()
-      .create();
-  
-}  
 
 
-
-
-function dataFetch(dataKeyValues){
+function dataFetch(dataKeyValues,testMode){
 
   var csvMode = true;
   
@@ -158,7 +148,17 @@ function dataFetch(dataKeyValues){
     }
   }else if( curStatusN >= 1 && curStatusN <= 4){
     //re run mode
-    continueStatus = true;    
+    continueStatus = true;
+  
+  }else if( curStatusN == 5){
+    
+     if(  (curTime - curLastRunTimeN)  >= 1 ){
+      curStatusN = 0;
+      continueStatus = true;
+    }else{
+      continueStatus = false;
+    }
+    
   }else{
     Logger.log('Unknow StockStatus : ' + curStatusN);
     continueStatus = false;
@@ -240,6 +240,13 @@ function dataFetch(dataKeyValues){
     //update status
     trgStatus.setValue(oldRunCnt + 1);
     trgLastRunTime.setValue(curTime);
+    
+  }
+  
+  if(testMode){
+    if(curSendData){
+      trgRng.clear({contentsOnly: true, skipFilteredRows: true});
+    }
     
   }
   

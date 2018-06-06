@@ -1,6 +1,16 @@
+function procFetch(){
+  nodeFetch(false);
+}
 
 
-function nodeFetch() {
+function testFetch(){
+  removeConfigKeyValuesFromCache();
+  nodeFetch(true);
+}
+
+
+
+function nodeFetch(testMode) {
   
   var csvMode = false;
   
@@ -18,23 +28,27 @@ function nodeFetch() {
   var NodeName = cfgKeyValues['NodeName'];
   var nodeShName = cfgKeyValues['nodeShName'];
  
-  var tagSrcCurrentCnt = cfgKeyValues['tagSrcCurrentCnt'];
+  
+  var tagMasterStatusCtrlCol = cfgKeyValues['tagMasterStatusCtrlCol'];
+  var tagMasterLastUpdateTimeCol = cfgKeyValues['tagMasterLastUpdateTimeCol'];
+   
+//  var tagSrcCurrentCnt = cfgKeyValues['tagSrcCurrentCnt'];
+  var tagSrcLastRunTime = cfgKeyValues['tagSrcLastRunTime'];
   var tagSTName = cfgKeyValues['tagSTName'];
   var tagSrcStockHeader = cfgKeyValues['tagSrcStockHeader'];
   var tagSrcToTrgRowHeader = cfgKeyValues['tagSrcToTrgRowHeader'];
   var tagSrcStockStatusHeader = cfgKeyValues['tagSrcStockStatusHeader'];
   var tagSrcStockLUTHeader = cfgKeyValues['tagSrcStockLUTHeader'];
-  var tagSrcRunStatus = cfgKeyValues['tagSrcRunStatus'];
-  var tagSrcLastRunTime = cfgKeyValues['tagSrcLastRunTime'];
+
   var tagValidation = cfgKeyValues['tagValidation'];
   var timeUp = Number(cfgKeyValues['timeUp']);
   var tagSrcEnable = cfgKeyValues['tagSrcEnable'];
   
   
   //key value in node
-  keyValues = nodeKeyValues;
+  
   var enable = Number(nodeKeyValues['enable'])
-  var currentCnt = Number(nodeKeyValues['currentCnt'])
+//  var currentCnt = Number(nodeKeyValues['currentCnt'])
   var totalCnt = Number(nodeKeyValues['totalCnt']);
   var remainCnt = Number(nodeKeyValues['remainCnt'])
   var dataShName = nodeKeyValues['dataShName'];
@@ -45,8 +59,52 @@ function nodeFetch() {
       var lastRunTimeN = convertToGoogleSheetNumber(Number(lastRunTimeS));
    
   }
+  var nodeRowInMaster = nodeKeyValues['nodeRowInMaster'];
   
-  //DECIDE IF PROCESS CONTINUE
+  //initial obj 
+  var shNode = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nodeShName);
+  var shTrgWb = SpreadsheetApp.openByUrl(trgGSUrl);
+  //var shSummary = shTrgWb.getSheetByName(trgShName);
+  var shMaster = shTrgWb.getSheetByName(trgControlShName);
+  var rngEnable =  shNode.getRange(tagSrcEnable)
+  var rngNodeStName = shNode.getRange(tagSTName);
+  var rngNodeLRT = shNode.getRange(tagSrcLastRunTime);
+  
+  var rngNodeSTCtrl = shMaster.getRange(tagMasterStatusCtrlCol+nodeRowInMaster);
+  var rngNodeSTLUT = shMaster.getRange(tagMasterLastUpdateTimeCol+nodeRowInMaster);
+  
+  //Check Master Control
+  var masterNodeStatus = Number(rngNodeSTCtrl.getValue());
+  
+  if(masterNodeStatus == 99 ){
+    Logger.log("Node disable, exit....");
+    return;
+  }else if(masterNodeStatus == 1 ){
+    //reload cache
+    removeKeyValuesFromCache();
+    Logger.log("Node reset and run...");
+    rngNodeStName.setValue('');
+    rngNodeLRT.setValue('');
+    rngNodeSTCtrl.setValue(0);
+    nodeFetch();
+    
+  }else if(masterNodeStatus == 2){
+    //reload cache
+    removeKeyValuesFromCache();
+    Logger.log("Node stop...");
+    rngNodeStName.setValue('');
+    rngNodeLRT.setValue('');
+    rngNodeSTCtrl.setValue(99);
+    return;
+  }else if( masterNodeStatus == 0){
+      rngNodeSTLUT.setValue(curTimeN);
+  }else{
+    Logger.log("Unknow Master Node Status...");
+    return;
+  }
+  
+  
+   //DECIDE IF PROCESS CONTINUE
   if (remainCnt == 0 && (curTimeN - lastRunTimeN) <= 1 ){
     Logger.log("Process all done, exit....");
     return;
@@ -55,16 +113,6 @@ function nodeFetch() {
     return;
   }
   
-  
-  //initial obj 
-  var shNode = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nodeShName);
-  var shTrgWb = SpreadsheetApp.openByUrl(trgGSUrl);
-  //var shSummary = shTrgWb.getSheetByName(trgShName);
-  var shAll = shTrgWb.getSheetByName(trgControlShName);
-  var rngEnable =  shNode.getRange(tagSrcEnable)
-  
-  var rngNodeStName = shNode.getRange(tagSTName);
-  var rngNodeLRT = shNode.getRange(tagSrcLastRunTime);
   
   
   //Prepare StockInfo
@@ -134,7 +182,14 @@ function nodeFetch() {
       
     }else if( curStatusN >= 5 ){
       
-      stockInfo_Error.push(info); 
+      if(  ((curTimeN - curLastRunTimeN))  >= 1 ){
+        info.status = 0;
+        stockInfo_PendingReRun.push(info);
+      }else{
+        stockInfo_Error.push(info);
+      }
+      
+       
     }else{
       
       Logger.log('Unknow StockStatus : ' + curStatusN);
@@ -173,7 +228,7 @@ function nodeFetch() {
       var stockInfo = stockInfoTmp[run];
       //process for single stock
       
-      processDataFetch(stockInfo);
+      processDataFetch(stockInfo,testMode);
       
       //mark to sheet
       rngNodeStName.setValue(stockInfo.stockName);
@@ -186,6 +241,13 @@ function nodeFetch() {
         SpreadsheetApp.flush();
         return;
       }
+      
+      if( testMode ) {
+        rngNodeLRT.setValue(getGoogleSheetDateNumber());
+        Logger.log('Test Mode Completed.'); 
+        return;
+      }
+      
       
     }
     
